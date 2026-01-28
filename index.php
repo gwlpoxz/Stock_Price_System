@@ -50,43 +50,44 @@ $filter_operators = ['>' => '大於', '<' => '小於', '=' => '等於', '>=' => 
 
 #把中文類型前面的「數字編號」切出來，當成數字來排
 #切文字：如果類型名稱是 "1.外資"，它會把點（.）左邊的 "1" 抓出來。
-#變數字：把抓出來的文字 
-"1" 真正變成可以計算的「數字 1」。
+#變數字：把抓出來的文字 "1" 真正變成可以計算的「數字 1」。
 #排序 (ASC)：按照 1, 2, 3... 的順序排好。
 $order_sql = " ORDER BY trade_date ASC, CAST(SUBSTRING_INDEX(trade_type_zh, '.', 1) AS UNSIGNED) ASC";
 
-// === 處理爬蟲連動test===
 // === 處理爬蟲連動 (優化版) ===
-if (isset($_POST['action']) && $_POST['action'] == 'run_crawler') {
-    $c_start = $_POST['crawl_start'];
-    $c_end = $_POST['crawl_end'];
+		if (isset($_POST['action']) && $_POST['action'] == 'run_crawler') {
+			$c_start = $_POST['crawl_start'] ?? '';
+			$c_end = $_POST['crawl_end'] ?? '';
 
-    
-	$python_path = "C:\\Users\\Gwen\\anaconda3\\envs\\AI\\python.exe";
+			// 1. 強制檢查路徑 (請再次確認這兩個檔案真的在資料夾裡)
+			$python_path = "C:/Users/Gwen/anaconda3/python.exe"; 
+			$script_path = "C:/xampp/htdocs/twse_sync.py";
 
-	$cmd = "cmd /c \"\"$python_path\" \"$script_path\" --start $arg_start --end $arg_end\" 2>&1";
+			$debug_info = [];
+			if (!file_exists($python_path)) $debug_info[] = "❌ 找不到 Python 執行檔";
+			if (!file_exists($script_path)) $debug_info[] = "❌ 找不到爬蟲腳本檔";
 
-    // 2. 使用 escapeshellarg 確保參數中若含空白或特殊字元不會造成錯誤或攻擊
-    $cmd = sprintf(
-        "%s %s --start %s --end %s 2>&1",
-        escapeshellarg($python_path),
-        escapeshellarg($script_path),
-        escapeshellarg($c_start),
-        escapeshellarg($c_end)
-    );
+			if (!empty($debug_info)) {
+				$error = implode("<br>", $debug_info);
+				$crawler_output = "路徑檢查失敗，請確認檔案位置。";
+			} else {
+				// 2. 使用 exec 取代 shell_exec，並抓取 return_var (錯誤代碼)
+				$cmd = "\"$python_path\" \"$script_path\" --start $c_start --end $c_end 2>&1";
+				
+				exec($cmd, $output, $return_var);
+				
+				$full_output = implode("\n", $output);
+				$crawler_output = "執行指令: $cmd\n";
+				$crawler_output .= "系統回傳代碼: $return_var\n";
+				$crawler_output .= "--- 執行結果 ---\n" . ($full_output ?: "(完全沒有輸出內容)");
 
-    // 執行
-    $crawler_output = shell_exec($cmd);
-    
-
-    if (strpos($crawler_output, '批次匯入完成') !== false) {
-        $message = "✅ 數據同步成功！已更新 $c_start 至 $c_end 的資料。";
-        log_action($pdo, $user_id, "遠端同步", "$c_start ~ $c_end");
-    } else {
-        $error = "⚠️ 同步過程可能發生異常，請檢查下方日誌。";
-    }
-}
-
+				if ($return_var === 0 && strpos($full_output, '批次匯入完成') !== false) {
+					$message = "✅ 數據同步成功！";
+				} else {
+					$error = "⚠️ 同步異常 (代碼: $return_var)";
+				}
+			}
+		}
 // ==========================================
 // 邏輯處理核心 (調整優先權)
 // ==========================================
@@ -217,35 +218,37 @@ $history_list = $hist_stmt->fetchAll(PDO::FETCH_ASSOC);
         <?php if ($message): ?> <div class="alert alert-success alert-dismissible fade show"><?php echo $message; ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div> <?php endif; ?>
         <?php if ($error): ?> <div class="alert alert-info alert-dismissible fade show"><?php echo $error; ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div> <?php endif; ?>
 
-        <div class="card border-primary">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">自動數據同步</h5>
-                <button class="btn btn-sm btn-light" type="button" data-bs-toggle="collapse" data-bs-target="#crawlerPanel">展開/收起</button>
-            </div>
-            <div id="crawlerPanel" class="collapse <?php echo $crawler_output ? 'show' : ''; ?>">
-                <div class="card-body">
-                    <form method="post" class="row g-3 align-items-end">
-                        <input type="hidden" name="action" value="run_crawler">
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">同步起點</label>
-                            <input type="date" name="crawl_start" class="form-control" value="<?php echo $start_date; ?>">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">同步終點</label>
-                            <input type="date" name="crawl_end" class="form-control" value="<?php echo $end_date; ?>">
-                        </div>
-                        <div class="col-md-4">
-                            <button type="submit" class="btn btn-primary w-100 fw-bold">啟動遠端 Python 同步</button>
-                        </div>
-                    </form>
-                    <?php if ($crawler_output): ?>
-                    <div class="mt-3">
-                        <pre style="max-height: 200px; overflow-y: auto;"><code><?php echo htmlspecialchars($crawler_output); ?></code></pre>
-                    </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
+		<div class="card border-primary">
+			<div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+				<h5 class="mb-0">🤖 自動數據同步 (連動 Python)</h5>
+				<button class="btn btn-sm btn-light" type="button" data-bs-toggle="collapse" data-bs-target="#crawlerPanel">展開/收起</button>
+			</div>
+			<div id="crawlerPanel" class="collapse <?php echo $crawler_output ? 'show' : ''; ?>">
+				<div class="card-body">
+					<form method="post" action="index.php" class="row g-3 align-items-end"> 
+						<input type="hidden" name="action" value="run_crawler"> 
+						<div class="col-md-4">
+							<label class="form-label fw-bold">1. 選擇同步起點</label>
+							<input type="date" name="crawl_start" class="form-control" value="<?php echo date('Y-m-01'); ?>">
+						</div>
+						<div class="col-md-4">
+							<label class="form-label fw-bold">2. 選擇同步終點</label>
+							<input type="date" name="crawl_end" class="form-control" value="<?php echo date('Y-m-d'); ?>">
+						</div>
+						<div class="col-md-4">
+							<button type="submit" class="btn btn-primary w-100 fw-bold">🚀 啟動遠端 Python 同步</button>
+						</div>
+					</form>
+					
+					<?php if ($crawler_output): ?>
+					<div class="mt-3">
+						<label class="small text-muted">Python 執行日誌：</label>
+						<pre style="max-height: 250px; overflow-y: auto;"><code><?php echo htmlspecialchars($crawler_output); ?></code></pre>
+					</div>
+					<?php endif; ?>
+				</div>
+			</div>
+		</div>
 
         <div class="card">
             <div class="card-header bg-warning text-dark fw-bold">🔍檢視區間設定</div>

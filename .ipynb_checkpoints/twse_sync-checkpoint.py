@@ -8,9 +8,8 @@ import pymysql # MySQL 的 Python 驅動程式
 import time # 用於暫停執行（防止爬太快被鎖 IP）
 import sys
 import argparse # 用於讀取命令行參數（如 --start, --end）
-import urllib3 #去除警告
+import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 
 # --- 定義資料庫連線配置 (請確認密碼是否正確) ---
 DB_HOST = 'localhost'      
@@ -37,6 +36,7 @@ def fetch_and_process_twse_data(query_date_str):
     
     #解釋：使用 requests 套件發送 GET 請求。timeout=15 代表如果證交所主機 15 秒內沒回應就斷開，避免程式無限期卡死。
     try: 
+        # 加入 verify=False
         response = requests.get(TWSE_API_URL, params=params, timeout=15, verify=False)
         #解釋：raise_for_status() 會檢查 HTTP 狀態碼，如果發生 404（找不到頁面）或 500（伺服器錯誤）會直接跳到錯誤處理。如果正常，則將回傳的內容轉換成 Python 的字典（Dictionary）格式存入 data。
         response.raise_for_status()
@@ -81,6 +81,8 @@ def fetch_and_process_twse_data(query_date_str):
     df = df[~df['trade_type_zh'].isin(EXCLUDE_TYPES)].reset_index(drop=True)
     print(f"✅ {query_date_str} 資料整理成功，取得 {len(df)} 筆數據。")
     return df
+
+
 
 
 #資料庫寫入邏輯
