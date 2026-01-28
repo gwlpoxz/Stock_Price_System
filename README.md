@@ -2,8 +2,8 @@
 
 **使用爬蟲抓取台灣公開股價頁資料存入資料庫後，
 撰寫php顯示在網頁中**
-
-/stock_analysis_system (專案根目錄)❤️ 
+```text
+/stock_analysis_system (根目錄)
 │
 ├── config/                 # 系統配置與環境設定
 │   └── db.php                # 資料庫連線與 Session 初始化
@@ -28,3 +28,4 @@
 │
 └── logs/                   # 存放執行日誌
 └── crawler_error.log     # 記錄 Python 執行失敗的 Traceback
+```
