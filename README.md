@@ -11,7 +11,7 @@
 │   └── db.php                # 資料庫連線與 Session 初始化
 │
 ├── public/                  # Web 進入點與前端視圖 (UI)
-│   ├── index.php             # 系統主控儀表板 (Dashboard)
+│   ├── index.php             # 系統主控儀表板
 │   ├── login.php             # 使用者登入頁面
 │   ├── register.php          # 新使用者註冊頁面
 │   ├── forgot.php            # 密碼重設引導頁
@@ -24,9 +24,5 @@
 │   ├── twse_sync.py          # Python 爬蟲與數據同步引擎
 │   └── run_stock_crawler.bat # Windows 環境啟動批次檔
 │
-├── docs/                    # 專案文檔
-│   ├── ARCHITECTURE.md       # 高階設計文檔
-│   └── README.md             # 專案快速入門手冊
-│
-└── logs/                    # (建議增加) 存放執行日誌
+└── logs/                    #存放執行日誌
     └── crawler_error.log     # 記錄 Python 執行失敗的 Traceback
